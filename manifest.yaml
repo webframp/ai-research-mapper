@@ -1,6 +1,6 @@
 manifestVersion: 1
 name: "@webframp/ai-research-mapper"
-version: "2026.06.17.1"
+version: "2026.06.17.2"
 description: "Fetch AI papers from arXiv and map them to cloud infrastructure decisions across AWS, Azure, and GCP. Produces structured per-provider implications with priority ratings, relevant cloud services, and decision categories."
 repository: "https://github.com/webframp/ai-research-mapper"
 platforms: []

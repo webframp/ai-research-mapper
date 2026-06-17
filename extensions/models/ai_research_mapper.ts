@@ -38,7 +38,9 @@ const CloudInfraMappingSchema = z.object({
   cloudImplications: z.array(
     z.object({
       provider: z.string().describe("AWS, Azure, GCP, or generic"),
-      impact: z.string().describe("How this affects decisions on this provider"),
+      impact: z.string().describe(
+        "How this affects decisions on this provider",
+      ),
       action: z.string().describe("Concrete step someone should take"),
       priority: z.enum(["high", "medium", "low"]),
     }),
@@ -115,7 +117,8 @@ async function fetchPaper(arxivId: string): Promise<PaperData> {
     .replace(/&quot;/g, '"');
 
   const authors: string[] = [];
-  const authorRe = /<meta[^>]+name=["']citation_author["'][^>]+content=["']([^"']+)["']/g;
+  const authorRe =
+    /<meta[^>]+name=["']citation_author["'][^>]+content=["']([^"']+)["']/g;
   let am: RegExpExecArray | null;
   while ((am = authorRe.exec(html)) !== null) {
     authors.push(am[1].trim());
@@ -159,7 +162,10 @@ function inferTags(abstract: string, title: string): string[] {
   const keywordRules: [RegExp, string][] = [
     [/layer.?norm|layer.?normalization|pre.?ln|post.?ln|lns/i, "normalization"],
     [/gpu|h100|h200|b200|trainium|tpu/i, "gpu"],
-    [/training.*cost|cost.*train|compute.*budget|scaling.*law/i, "training-cost"],
+    [
+      /training.*cost|cost.*train|compute.*budget|scaling.*law/i,
+      "training-cost",
+    ],
     [/inference.*cost|inference.*optimize|quantiz|prun/i, "inference-cost"],
     [/fine.?tune|sft|instruct|adapt/i, "fine-tuning"],
     [/multi.?modal|vision|audio.*model|text.*image/i, "multimodal"],
@@ -192,41 +198,60 @@ function mapToCloudInfra(paper: PaperData): MappingData {
   const decisionCategories: Array<MappingData["decisionCategory"][number]> = [];
   const tags = paper.tags;
 
-  if (tags.includes("training-cost") || tags.includes("normalization") || tags.includes("model-architecture")) {
+  if (
+    tags.includes("training-cost") || tags.includes("normalization") ||
+    tags.includes("model-architecture")
+  ) {
     decisionCategories.push("training-cost");
     implications.push({
       provider: "generic",
-      impact: "Paper impacts training resource requirements — may reduce GPU hours needed for effective training depth.",
-      action: "Update cost models to account for modified layer utilization. Re-benchmark training efficiency on target hardware.",
+      impact:
+        "Paper impacts training resource requirements — may reduce GPU hours needed for effective training depth.",
+      action:
+        "Update cost models to account for modified layer utilization. Re-benchmark training efficiency on target hardware.",
       priority: "high",
     });
     implications.push({
       provider: "GCP",
-      impact: "TPU v5p/v6 pricing advantages compound if training depth efficiency improves — fewer layers wasted means better TPU utilization per dollar.",
-      action: "Model TPU cost-per-effective-layer metrics. GCP pricing starts at $2,000-2,700 for 72h 8-GPU training runs versus $2,400-3,100 on AWS.",
+      impact:
+        "TPU v5p/v6 pricing advantages compound if training depth efficiency improves — fewer layers wasted means better TPU utilization per dollar.",
+      action:
+        "Model TPU cost-per-effective-layer metrics. GCP pricing starts at $2,000-2,700 for 72h 8-GPU training runs versus $2,400-3,100 on AWS.",
       priority: "medium",
     });
     implications.push({
       provider: "AWS",
-      impact: "Trainium3 instances (launched Q1 2026, 3x faster than Trainium2) benefit from architecture improvements that reduce layer waste.",
-      action: "Benchmark Trainium3 against H100/H200 for models using improved normalization strategies like LNS.",
+      impact:
+        "Trainium3 instances (launched Q1 2026, 3x faster than Trainium2) benefit from architecture improvements that reduce layer waste.",
+      action:
+        "Benchmark Trainium3 against H100/H200 for models using improved normalization strategies like LNS.",
       priority: "medium",
     });
     implications.push({
       provider: "Azure",
-      impact: "Azure's 39% YoY AI growth means architectural optimizations that reduce training cost compound savings at scale with reserved capacity.",
-      action: "Evaluate Azure reserved GPU instances against spot pricing when training models with reduced layer waste.",
+      impact:
+        "Azure's 39% YoY AI growth means architectural optimizations that reduce training cost compound savings at scale with reserved capacity.",
+      action:
+        "Evaluate Azure reserved GPU instances against spot pricing when training models with reduced layer waste.",
       priority: "low",
     });
-    relevantServices.push("AWS SageMaker", "AWS Trainium", "GCP Vertex AI", "GCP TPU", "Azure ML Studio");
+    relevantServices.push(
+      "AWS SageMaker",
+      "AWS Trainium",
+      "GCP Vertex AI",
+      "GCP TPU",
+      "Azure ML Studio",
+    );
   }
 
   if (tags.includes("inference-cost") || tags.includes("deployment-strategy")) {
     decisionCategories.push("inference-cost");
     implications.push({
       provider: "generic",
-      impact: "Inference optimization research directly affects per-token cost across all cloud providers.",
-      action: "Track inference benchmark comparisons (Azure 180ms TTFT, GCP 210ms, AWS 245ms) against any new optimization.",
+      impact:
+        "Inference optimization research directly affects per-token cost across all cloud providers.",
+      action:
+        "Track inference benchmark comparisons (Azure 180ms TTFT, GCP 210ms, AWS 245ms) against any new optimization.",
       priority: "medium",
     });
     relevantServices.push("AWS Bedrock", "Azure OpenAI", "GCP Vertex AI");
@@ -236,8 +261,10 @@ function mapToCloudInfra(paper: PaperData): MappingData {
     decisionCategories.push("deployment-strategy");
     implications.push({
       provider: "generic",
-      impact: "Architecture decisions affect deployment topology — deeper efficient models may need different serving infrastructure.",
-      action: "Review serving infra (GKE/AKS/EKS) capacity planning against model architecture changes.",
+      impact:
+        "Architecture decisions affect deployment topology — deeper efficient models may need different serving infrastructure.",
+      action:
+        "Review serving infra (GKE/AKS/EKS) capacity planning against model architecture changes.",
       priority: "medium",
     });
     relevantServices.push("GKE", "EKS", "AKS", "AWS Lambda", "GCP Cloud Run");
@@ -247,22 +274,35 @@ function mapToCloudInfra(paper: PaperData): MappingData {
     decisionCategories.push("fine-tuning");
     implications.push({
       provider: "generic",
-      impact: "Fine-tuning costs and approaches vary significantly by cloud: Vertex AI supports full suite (prompt tuning, LoRA, full retrain), Azure supports GPT-3.5 fine-tuning, Bedrock delegates to SageMaker.",
-      action: "Choose fine-tuning approach based on provider capabilities — Vertex AI has broadest support at $1.20/h vCPU + $2/h GPU.",
+      impact:
+        "Fine-tuning costs and approaches vary significantly by cloud: Vertex AI supports full suite (prompt tuning, LoRA, full retrain), Azure supports GPT-3.5 fine-tuning, Bedrock delegates to SageMaker.",
+      action:
+        "Choose fine-tuning approach based on provider capabilities — Vertex AI has broadest support at $1.20/h vCPU + $2/h GPU.",
       priority: "medium",
     });
-    relevantServices.push("GCP Vertex AI Fine-tuning", "Azure OpenAI Fine-tuning", "AWS SageMaker");
+    relevantServices.push(
+      "GCP Vertex AI Fine-tuning",
+      "Azure OpenAI Fine-tuning",
+      "AWS SageMaker",
+    );
   }
 
   if (tags.includes("gpu")) {
     decisionCategories.push("gpu-selection");
     implications.push({
       provider: "generic",
-      impact: "H200 has replaced H100 as baseline for pre-training. H100 at $3-10/h, H200 at $3.83-10/h, B200 starting at $2.40/h.",
-      action: "Update hardware selection matrix. Evaluate H200 vs B200 vs Trainium3 vs TPU v5p per effective training throughput.",
+      impact:
+        "H200 has replaced H100 as baseline for pre-training. H100 at $3-10/h, H200 at $3.83-10/h, B200 starting at $2.40/h.",
+      action:
+        "Update hardware selection matrix. Evaluate H200 vs B200 vs Trainium3 vs TPU v5p per effective training throughput.",
       priority: "high",
     });
-    relevantServices.push("AWS EC2 P5/P6", "Azure ND H100/H200", "GCP A3 High-GPU", "GCP TPU v5p/v6");
+    relevantServices.push(
+      "AWS EC2 P5/P6",
+      "Azure ND H100/H200",
+      "GCP A3 High-GPU",
+      "GCP TPU v5p/v6",
+    );
   }
 
   if (tags.includes("normalization") || tags.includes("model-architecture")) {
@@ -270,8 +310,10 @@ function mapToCloudInfra(paper: PaperData): MappingData {
     if (!implications.some((i) => i.priority === "high")) {
       implications.push({
         provider: "generic",
-        impact: "Architecture changes like LNS (LayerNorm Scaling) are trivially implementable — one line per layer norm, no hyperparams, zero extra parameters.",
-        action: "Apply LNS to any Pre-LN LLaMA-family training run. Drop Scaled Initialization when using LNS. Reduces wasted GPU cycles on near-identity deep layers.",
+        impact:
+          "Architecture changes like LNS (LayerNorm Scaling) are trivially implementable — one line per layer norm, no hyperparams, zero extra parameters.",
+        action:
+          "Apply LNS to any Pre-LN LLaMA-family training run. Drop Scaled Initialization when using LNS. Reduces wasted GPU cycles on near-identity deep layers.",
         priority: "high",
       });
     }
@@ -282,32 +324,46 @@ function mapToCloudInfra(paper: PaperData): MappingData {
     decisionCategories.push("multimodal");
     implications.push({
       provider: "GCP",
-      impact: "Vertex AI with Gemini has the most native multimodal support (text, image, audio, code under one endpoint).",
-      action: "If multimodal capability is driving provider choice, GCP has the most cohesive story.",
+      impact:
+        "Vertex AI with Gemini has the most native multimodal support (text, image, audio, code under one endpoint).",
+      action:
+        "If multimodal capability is driving provider choice, GCP has the most cohesive story.",
       priority: "medium",
     });
     implications.push({
       provider: "Azure",
-      impact: "Azure OpenAI has strong multimodal via GPT-4 Vision + DALL-E + Whisper but services are separate.",
-      action: "Azure is best when OpenAI model family is the priority and multimodal is secondary.",
+      impact:
+        "Azure OpenAI has strong multimodal via GPT-4 Vision + DALL-E + Whisper but services are separate.",
+      action:
+        "Azure is best when OpenAI model family is the priority and multimodal is secondary.",
       priority: "low",
     });
     implications.push({
       provider: "AWS",
-      impact: "Bedrock multimodal varies by provider — Stability AI for images, no native vision/audio yet.",
-      action: "For multimodal-first use cases, Bedrock's model breadth matters less than GCP's unified architecture.",
+      impact:
+        "Bedrock multimodal varies by provider — Stability AI for images, no native vision/audio yet.",
+      action:
+        "For multimodal-first use cases, Bedrock's model breadth matters less than GCP's unified architecture.",
       priority: "low",
     });
-    relevantServices.push("GCP Gemini", "Azure OpenAI Vision", "AWS Bedrock Stability AI");
+    relevantServices.push(
+      "GCP Gemini",
+      "Azure OpenAI Vision",
+      "AWS Bedrock Stability AI",
+    );
   }
 
   const summaryLines: string[] = [
     `Paper: "${paper.title}" (arXiv:${paper.arxivId})`,
-    `Authors: ${paper.authors.slice(0, 3).join(", ")}${paper.authors.length > 3 ? " et al." : ""}`,
+    `Authors: ${paper.authors.slice(0, 3).join(", ")}${
+      paper.authors.length > 3 ? " et al." : ""
+    }`,
     `Tags: ${tags.join(", ")}`,
     "",
     "Cloud infrastructure mapping:",
-    ...implications.map((i) => `  [${i.provider}] (${i.priority} priority) ${i.action}`),
+    ...implications.map((i) =>
+      `  [${i.provider}] (${i.priority} priority) ${i.action}`
+    ),
   ];
 
   return {
@@ -333,7 +389,7 @@ function mapToCloudInfra(paper: PaperData): MappingData {
  */
 export const model = {
   type: "@webframp/ai-research-mapper",
-  version: "2026.06.17.1",
+  version: "2026.06.17.2",
   globalArguments: GlobalArgsSchema,
 
   resources: {
@@ -376,10 +432,16 @@ export const model = {
         context.logger.info(`Fetching paper ${arxivId} from arXiv...`);
         const paper = await fetchPaper(arxivId);
 
-        context.logger.info(`Mapping ${paper.title} to cloud infrastructure...`);
+        context.logger.info(
+          `Mapping ${paper.title} to cloud infrastructure...`,
+        );
         const mapping = mapToCloudInfra(paper);
 
-        const paperHandle = await context.writeResource("paper", arxivId, paper);
+        const paperHandle = await context.writeResource(
+          "paper",
+          arxivId,
+          paper,
+        );
         const mappingHandle = await context.writeResource(
           "mapping",
           `mapping-${arxivId}`,
@@ -397,7 +459,8 @@ export const model = {
     },
 
     get: {
-      description: "Retrieve a previously mapped paper's cloud infrastructure analysis",
+      description:
+        "Retrieve a previously mapped paper's cloud infrastructure analysis",
       arguments: z.object({
         arxivId: z.string().describe("arXiv ID to look up"),
       }),
@@ -450,7 +513,9 @@ export const model = {
             message:
               `Use 'swamp data query' to enumerate mapped papers${filterHint}`,
             filterHint: args.provider || args.category
-              ? `swamp data query 'specName == "mapping" && attributes.cloudImplications[*].provider == "${args.provider || ".*"}"'`
+              ? `swamp data query 'specName == "mapping" && attributes.cloudImplications[*].provider == "${
+                args.provider || ".*"
+              }"'`
               : "swamp data list --type resource | grep ai-research-mapper",
           },
         };
